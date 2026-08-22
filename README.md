@@ -47,8 +47,8 @@ YAML test suite
 |---|---|
 | Python package scaffold (`src/`, `tests/`, `examples/`) | ✅ M1 |
 | Pinned core dependencies (`requirements.txt`) | ✅ M1 |
-| YAML test suite format | M2 |
-| Multi-model parallel execution (OpenAI + Anthropic) | M3 |
+| YAML test suite format + suite loader | ✅ M2 |
+| Multi-model parallel runner (OpenAI + Anthropic, async) | ✅ M2 |
 | LLM-as-judge scoring (1–5 + rationale) | M3 |
 | FastAPI + HTMX web dashboard | M4 |
 | HTML report export | M4 |
@@ -75,7 +75,7 @@ export OPENAI_API_KEY=sk-...
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # 5. Run an example suite (available from M2 onwards)
-python main.py run --suite examples/sentiment_suite.yaml
+python main.py run --suite examples/qa_suite.yaml
 
 # 6. Open the dashboard (available from M4 onwards)
 python main.py serve
@@ -84,27 +84,38 @@ python main.py serve
 
 ---
 
-## Test suite format (M2)
+## Test suite format (YAML)
+
+Each suite file has a top-level `name` and a list of `test_cases`. See `examples/qa_suite.yaml` for a runnable example.
 
 ```yaml
-suite_name: sentiment_analysis
-models:
-  - gpt-4o-mini
-  - claude-haiku-4-5
+name: basic_qa
 
-cases:
-  - name: positive_review
-    prompt: "Classify the sentiment of the following text: {text}"
+test_cases:
+  - id: capital_france
+    prompt: "What is the capital of {country}?"
     input_variables:
-      text: "I absolutely loved this product!"
-    expected_output: "positive"
-    rubric: "Output must be one of: positive, negative, neutral."
+      country: France
+    expected_output: Paris          # optional
+    rubric: The answer must name Paris as the capital of France.
 
-  - name: ambiguous_review
-    prompt: "Classify the sentiment of the following text: {text}"
-    input_variables:
-      text: "It arrived on time."
-    rubric: "Output must be one of: positive, negative, neutral. Ambiguous cases should be neutral."
+  - id: python_list_comprehension
+    prompt: "Explain Python list comprehensions in one sentence."
+    input_variables: {}             # empty is fine
+    rubric: The answer should explain list comprehensions concisely.
+```
+
+### Loading a suite in Python
+
+```python
+from prompt_eval_studio.suite_loader import load_suite
+from prompt_eval_studio.runner import run_suite
+import asyncio
+
+suite = load_suite("examples/qa_suite.yaml")
+results = asyncio.run(run_suite(suite, models=["gpt-4o-mini", "claude-haiku-4-5-20251001"]))
+for r in results:
+    print(r.model, r.test_case_id, r.latency_ms, r.completion[:60])
 ```
 
 ---
@@ -114,8 +125,8 @@ cases:
 | Milestone | Description | Status |
 |---|---|---|
 | M1 | Scaffold + README | ✅ Done |
-| M2 | YAML parser + test suite schema | Pending |
-| M3 | Multi-model runner + LLM judge | Pending |
+| M2 | YAML suite loader + multi-model async runner | ✅ Done |
+| M3 | LLM-as-judge scoring | Pending |
 | M4 | FastAPI dashboard + HTML export | Pending |
 | M5 | CLI entrypoint + CI integration | Pending |
 
@@ -128,13 +139,18 @@ prompt-eval-studio/
 ├── src/
 │   ├── __init__.py
 │   └── prompt_eval_studio/
-│       └── __init__.py       # package root, exposes __version__
+│       ├── __init__.py       # package root, exposes __version__
+│       ├── models.py         # shared dataclasses: TestCase, Suite, RunResult
+│       ├── suite_loader.py   # load_suite(path) -> Suite
+│       └── runner.py         # run_suite(suite, models) -> list[RunResult]
 ├── tests/
 │   ├── __init__.py
-│   └── test_placeholder.py   # smoke test for M1
+│   ├── test_placeholder.py       # smoke test for M1
+│   ├── test_suite_loader.py      # YAML parsing and validation
+│   └── test_runner.py            # parallel dispatch, variable rendering, error capture
 ├── examples/
-│   └── README.md             # example suites live here from M2
-├── requirements.txt          # pinned: fastapi, uvicorn, openai, anthropic, pyyaml, jinja2, httpx
+│   └── qa_suite.yaml             # runnable 3-case QA example
+├── requirements.txt          # pinned: fastapi, uvicorn, openai, anthropic, pyyaml, jinja2, httpx, pytest-asyncio
 ├── pyproject.toml            # requires-python = ">=3.11", pytest config
 ├── .gitignore
 ├── LICENSE
