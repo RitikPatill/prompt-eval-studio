@@ -1,0 +1,20 @@
+name: basic_qa
+
+test_cases:
+  - id: capital_france
+    prompt: "What is the capital of {country}?"
+    input_variables:
+      country: France
+    expected_output: Paris
+    rubric: The answer must name Paris as the capital of France.
+
+  - id: python_list_comprehension
+    prompt: "Explain Python list comprehensions in one sentence."
+    input_variables: {}
+    rubric: The answer should explain that list comprehensions create lists concisely using a for expression inside square brackets.
+
+  - id: haiku_poem
+    prompt: "Write a haiku about {topic}."
+    input_variables:
+      topic: autumn leaves
+    rubric: Must follow 5-7-5 syllable structure and reference autumn leaves.
