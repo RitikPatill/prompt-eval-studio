@@ -49,7 +49,7 @@ YAML test suite
 | Pinned core dependencies (`requirements.txt`) | ✅ M1 |
 | YAML test suite format + suite loader | ✅ M2 |
 | Multi-model parallel runner (OpenAI + Anthropic, async) | ✅ M2 |
-| LLM-as-judge scoring (1–5 + rationale) | M3 |
+| LLM-as-judge scoring (1–5 + rationale) | ✅ M3 |
 | FastAPI + HTMX web dashboard | M4 |
 | HTML report export | M4 |
 | CLI mode (`python main.py run`) with CI exit codes | M5 |
@@ -120,13 +120,49 @@ for r in results:
 
 ---
 
+## Scoring outputs with the judge
+
+After running a suite, pass the results through `judge_all` to get structured scores. The judge calls an LLM (OpenAI or Anthropic) with a configurable rubric prompt and returns a `JudgeResult` per run result.
+
+```python
+from prompt_eval_studio.suite_loader import load_suite
+from prompt_eval_studio.runner import run_suite
+from prompt_eval_studio.judge import judge_all
+import asyncio
+
+suite = load_suite("examples/qa_suite.yaml")
+run_results = asyncio.run(run_suite(suite, models=["gpt-4o-mini", "claude-haiku-4-5-20251001"]))
+
+# Score all outputs in parallel; threshold sets the pass/fail boundary (default: 3)
+judge_results = asyncio.run(
+    judge_all(run_results, suite, judge_model="claude-haiku-4-5-20251001", threshold=3)
+)
+
+for jr in judge_results:
+    status = "PASS" if jr.passed else "FAIL"
+    print(f"[{status}] {jr.model} / {jr.test_case_id}  score={jr.score}  {jr.rationale}")
+```
+
+**`JudgeResult` fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `score` | `int` (1–5) | 1 = completely wrong, 5 = fully correct; `0` if the judge itself errored |
+| `rationale` | `str` | One-sentence explanation from the judge |
+| `passed` | `bool` | `True` when `score >= threshold` |
+| `error` | `str \| None` | Set if the runner or judge call failed |
+
+The judge supports any `gpt-*` or `claude-*` model as `judge_model`. Temperature is fixed at 0 for deterministic scoring.
+
+---
+
 ## Roadmap
 
 | Milestone | Description | Status |
 |---|---|---|
 | M1 | Scaffold + README | ✅ Done |
 | M2 | YAML suite loader + multi-model async runner | ✅ Done |
-| M3 | LLM-as-judge scoring | Pending |
+| M3 | LLM-as-judge scoring | ✅ Done |
 | M4 | FastAPI dashboard + HTML export | Pending |
 | M5 | CLI entrypoint + CI integration | Pending |
 
@@ -140,14 +176,16 @@ prompt-eval-studio/
 │   ├── __init__.py
 │   └── prompt_eval_studio/
 │       ├── __init__.py       # package root, exposes __version__
-│       ├── models.py         # shared dataclasses: TestCase, Suite, RunResult
+│       ├── models.py         # shared dataclasses: TestCase, Suite, RunResult, JudgeResult
 │       ├── suite_loader.py   # load_suite(path) -> Suite
-│       └── runner.py         # run_suite(suite, models) -> list[RunResult]
+│       ├── runner.py         # run_suite(suite, models) -> list[RunResult]
+│       └── judge.py          # judge_result / judge_all -> list[JudgeResult]
 ├── tests/
 │   ├── __init__.py
 │   ├── test_placeholder.py       # smoke test for M1
 │   ├── test_suite_loader.py      # YAML parsing and validation
-│   └── test_runner.py            # parallel dispatch, variable rendering, error capture
+│   ├── test_runner.py            # parallel dispatch, variable rendering, error capture
+│   └── test_judge.py             # judge scoring: pass/fail, malformed JSON, error propagation
 ├── examples/
 │   └── qa_suite.yaml             # runnable 3-case QA example
 ├── requirements.txt          # pinned: fastapi, uvicorn, openai, anthropic, pyyaml, jinja2, httpx, pytest-asyncio

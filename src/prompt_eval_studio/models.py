@@ -27,3 +27,14 @@ class RunResult:
     completion: str
     latency_ms: float
     error: str | None = None
+
+
+@dataclass
+class JudgeResult:
+    suite_name: str
+    test_case_id: str
+    model: str          # model that produced the completion being judged
+    score: int          # 1–5; 0 if judge itself errored
+    rationale: str
+    passed: bool        # score >= threshold
+    error: str | None = None
