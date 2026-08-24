@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PromptEval Report — {{ job.suite_name }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      padding: 2rem;
+    }
+    h1 { color: #a0c4ff; font-size: 1.3rem; margin-bottom: 0.25rem; }
+    .meta { color: #555; font-size: 0.8rem; margin-bottom: 1.5rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-top: 1rem;
+    }
+    th {
+      background: #1a1a1a;
+      color: #a0c4ff;
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid #333;
+    }
+    td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #1e1e1e;
+      vertical-align: top;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 3px;
+      font-weight: bold;
+      font-size: 0.8rem;
+    }
+    .score-high { background: #1a3d1a; color: #4caf50; border: 1px solid #2e6b2e; }
+    .score-mid  { background: #3d3000; color: #ffc107; border: 1px solid #6b5000; }
+    .score-low  { background: #3d1a1a; color: #f44336; border: 1px solid #6b2a2a; }
+    .score-zero { background: #2a2a2a; color: #888;    border: 1px solid #444; }
+    .latency { color: #888; font-size: 0.78rem; }
+    .rationale { color: #ccc; font-size: 0.82rem; line-height: 1.5; }
+    .summary-bar { margin-top: 1.5rem; font-size: 0.85rem; color: #aaa; }
+    .summary-bar span { margin-right: 1.5rem; }
+    .pass { color: #4caf50; } .fail { color: #f44336; }
+  </style>
+</head>
+<body>
+  <h1>PromptEval Report — {{ job.suite_name }}</h1>
+  <p class="meta">
+    Job: {{ job_id }}
+    &nbsp;|&nbsp;
+    Models: {{ job.models | join(", ") }}
+  </p>
+
+  {% if job.judge_results %}
+  <table>
+    <thead>
+      <tr>
+        <th>Test Case</th>
+        <th>Model</th>
+        <th>Score</th>
+        <th>Latency</th>
+        <th>Rationale</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for jr in job.judge_results %}
+      {% set latency_ms = namespace(value=None) %}
+      {% for rr in job.run_results %}
+        {% if rr.test_case_id == jr.test_case_id and rr.model == jr.model %}
+          {% set latency_ms.value = rr.latency_ms %}
+        {% endif %}
+      {% endfor %}
+      <tr>
+        <td>{{ jr.test_case_id }}</td>
+        <td>{{ jr.model }}</td>
+        <td>
+          {% if jr.score == 0 %}
+            <span class="badge score-zero">ERR</span>
+          {% elif jr.score >= 4 %}
+            <span class="badge score-high">{{ jr.score }}/5</span>
+          {% elif jr.score == 3 %}
+            <span class="badge score-mid">{{ jr.score }}/5</span>
+          {% else %}
+            <span class="badge score-low">{{ jr.score }}/5</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if latency_ms.value is not none %}
+            <span class="latency">{{ "%.0f"|format(latency_ms.value) }} ms</span>
+          {% else %}
+            <span class="latency">—</span>
+          {% endif %}
+        </td>
+        <td class="rationale">
+          {% if jr.error %}
+            <span style="color:#f44336;">{{ jr.error }}</span>
+          {% else %}
+            {{ jr.rationale }}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% set pass_count = job.judge_results | selectattr("passed") | list | length %}
+  {% set total = job.judge_results | length %}
+  <div class="summary-bar">
+    <span class="pass">&#10003; {{ pass_count }} passed</span>
+    <span class="fail">&#10007; {{ total - pass_count }} failed</span>
+    <span>{{ total }} total</span>
+  </div>
+  {% else %}
+  <p style="color:#555; margin-top:1rem;">No results.</p>
+  {% endif %}
+</body>
+</html>

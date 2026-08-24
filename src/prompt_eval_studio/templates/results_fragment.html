@@ -1,0 +1,97 @@
+{% if job.status == "error" %}
+<div class="banner-error">
+  <strong>Error:</strong> {{ job.error }}
+</div>
+
+{% elif job.status == "running" and not job.judge_results %}
+<div class="running-msg"
+     hx-get="/run/{{ job_id }}/status"
+     hx-trigger="every 1500ms"
+     hx-target="#results-container"
+     hx-swap="innerHTML">
+  <span class="spinner"></span> Running — waiting for first results…
+</div>
+
+{% else %}
+  {# Render results table (may still be growing if status=="running") #}
+  {% if job.judge_results %}
+  <table>
+    <thead>
+      <tr>
+        <th>Test Case</th>
+        <th>Model</th>
+        <th>Score</th>
+        <th>Latency</th>
+        <th>Rationale</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for jr in job.judge_results %}
+      {% set latency_ms = namespace(value=None) %}
+      {% for rr in job.run_results %}
+        {% if rr.test_case_id == jr.test_case_id and rr.model == jr.model %}
+          {% set latency_ms.value = rr.latency_ms %}
+        {% endif %}
+      {% endfor %}
+      <tr>
+        <td>{{ jr.test_case_id }}</td>
+        <td>{{ jr.model }}</td>
+        <td>
+          {% if jr.score == 0 %}
+            <span class="badge score-zero">ERR</span>
+          {% elif jr.score >= 4 %}
+            <span class="badge score-high">{{ jr.score }}/5</span>
+          {% elif jr.score == 3 %}
+            <span class="badge score-mid">{{ jr.score }}/5</span>
+          {% else %}
+            <span class="badge score-low">{{ jr.score }}/5</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if latency_ms.value is not none %}
+            <span class="latency">{{ "%.0f"|format(latency_ms.value) }} ms</span>
+          {% else %}
+            <span class="latency">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if jr.error %}
+            <span style="color:#f44336; font-size:0.8rem;">{{ jr.error }}</span>
+          {% else %}
+            <details>
+              <summary>view</summary>
+              <p>{{ jr.rationale }}</p>
+            </details>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if job.status == "running" %}
+  {# Keep polling by re-including the trigger on a small element #}
+  <div class="running-msg"
+       hx-get="/run/{{ job_id }}/status"
+       hx-trigger="every 1500ms"
+       hx-target="#results-container"
+       hx-swap="innerHTML">
+    <span class="spinner"></span> Evaluating…
+  </div>
+
+  {% else %}
+  {# status == "done" — show summary + export button; no polling div #}
+  {% set pass_count = job.judge_results | selectattr("passed") | list | length %}
+  {% set total = job.judge_results | length %}
+  <div class="summary-bar">
+    <span class="pass">&#10003; {{ pass_count }} passed</span>
+    <span class="fail">&#10007; {{ total - pass_count }} failed</span>
+    <span>{{ total }} total</span>
+  </div>
+  <div style="margin-top:1rem;">
+    <a class="btn" href="/export/{{ job_id }}/html">Export HTML report</a>
+    <a style="margin-left:1rem;" href="/">New run</a>
+  </div>
+  {% endif %}
+{% endif %}

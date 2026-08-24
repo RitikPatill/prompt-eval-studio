@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Job {{ job_id[:8] }} — PromptEval Studio{% endblock %}
+{% block content %}
+<h2 style="color:#a0c4ff; margin-bottom:0.5rem; font-size:1.1rem;">
+  Evaluation: {{ suite_name }}
+</h2>
+<p style="color:#555; font-size:0.8rem; margin-bottom:1.5rem;">
+  Job ID: {{ job_id }}
+</p>
+
+<div id="results-container"
+     hx-get="/run/{{ job_id }}/status"
+     hx-trigger="load, every 1500ms"
+     hx-target="#results-container"
+     hx-swap="innerHTML"
+     hx-on::after-swap="if(this.querySelector('.summary-bar')) this.removeAttribute('hx-trigger')">
+  <div class="running-msg">
+    <span class="spinner"></span> Starting evaluation…
+  </div>
+</div>
+{% endblock %}

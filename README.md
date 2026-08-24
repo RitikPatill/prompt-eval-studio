@@ -50,8 +50,8 @@ YAML test suite
 | YAML test suite format + suite loader | ✅ M2 |
 | Multi-model parallel runner (OpenAI + Anthropic, async) | ✅ M2 |
 | LLM-as-judge scoring (1–5 + rationale) | ✅ M3 |
-| FastAPI + HTMX web dashboard | M4 |
-| HTML report export | M4 |
+| FastAPI + HTMX web dashboard | ✅ M4 |
+| HTML report export | ✅ M4 |
 | CLI mode (`python main.py run`) with CI exit codes | M5 |
 
 ---
@@ -156,6 +156,23 @@ The judge supports any `gpt-*` or `claude-*` model as `judge_model`. Temperature
 
 ---
 
+## Web dashboard (M4)
+
+Start the dashboard with:
+
+```bash
+uvicorn prompt_eval_studio.webapp:app --reload
+# → http://localhost:8000
+```
+
+The landing page (`GET /`) shows a form where you select a suite YAML path, the models to evaluate, and a pass threshold. On submit the app spawns a background evaluation job and redirects to a live results page that polls every 1.5 s using HTMX. The results table updates in place — showing model × test-case rows with colour-coded score badges (green ≥ 4, yellow = 3, red ≤ 2), latency, and expandable rationale text.
+
+Once evaluation completes, an **Export HTML** button downloads a fully self-contained HTML report (no CDN links) suitable for sharing.
+
+No Node.js or build step required. HTMX is loaded from CDN. All CSS is inline.
+
+---
+
 ## Roadmap
 
 | Milestone | Description | Status |
@@ -163,7 +180,7 @@ The judge supports any `gpt-*` or `claude-*` model as `judge_model`. Temperature
 | M1 | Scaffold + README | ✅ Done |
 | M2 | YAML suite loader + multi-model async runner | ✅ Done |
 | M3 | LLM-as-judge scoring | ✅ Done |
-| M4 | FastAPI dashboard + HTML export | Pending |
+| M4 | FastAPI dashboard + HTML export | ✅ Done |
 | M5 | CLI entrypoint + CI integration | Pending |
 
 ---
@@ -179,13 +196,16 @@ prompt-eval-studio/
 │       ├── models.py         # shared dataclasses: TestCase, Suite, RunResult, JudgeResult
 │       ├── suite_loader.py   # load_suite(path) -> Suite
 │       ├── runner.py         # run_suite(suite, models) -> list[RunResult]
-│       └── judge.py          # judge_result / judge_all -> list[JudgeResult]
+│       ├── judge.py          # judge_result / judge_all -> list[JudgeResult]
+│       ├── webapp.py         # FastAPI app: job queue, routes, HTMX polling
+│       └── templates/        # Jinja2 templates (base, index, run, fragment, report)
 ├── tests/
 │   ├── __init__.py
 │   ├── test_placeholder.py       # smoke test for M1
 │   ├── test_suite_loader.py      # YAML parsing and validation
 │   ├── test_runner.py            # parallel dispatch, variable rendering, error capture
-│   └── test_judge.py             # judge scoring: pass/fail, malformed JSON, error propagation
+│   ├── test_judge.py             # judge scoring: pass/fail, malformed JSON, error propagation
+│   └── test_webapp.py            # FastAPI routes: index, run submit, status polling, export
 ├── examples/
 │   └── qa_suite.yaml             # runnable 3-case QA example
 ├── requirements.txt          # pinned: fastapi, uvicorn, openai, anthropic, pyyaml, jinja2, httpx, pytest-asyncio
