@@ -1,5 +1,9 @@
 # PromptEval Studio
 
+
+> **Video walkthrough:** https://youtu.be/oLaIZTfdlc8
+> **60-second overview:** https://youtu.be/8tbVENTGs2w
+
 > A local web tool to run, judge, and compare LLM prompt test suites — evals-as-code with an LLM-as-judge scorer.
 
 <!-- TODO: replace with a 5-10 second demo gif. Record with ScreenToGif on
